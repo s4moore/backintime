@@ -1085,7 +1085,7 @@ def lastSnapshotDict(cfg:config.Config):
             ssh.umount()
 
 
-def profileStatus(args):
+def profileStatus(args=None, cfg=None, profile_id=None):
     """
     Print most recent snapshot and snapshot details for the profile
     specified with --profile or --profile-id (--profile takes 
@@ -1098,15 +1098,19 @@ def profileStatus(args):
     Raises:
         SystemExit:     0
     """
-    force_stdout = setQuiet(args)
-    cfg = getConfig(args)
+    if cfg is not None:
+        cfg.setCurrentProfile(profile_id)
+        force_stdout = sys.stdout
+    else: 
+        force_stdout = setQuiet(args)
+        cfg = getConfig(args)
 
-    if args.profile:
-        if not cfg.setCurrentProfileByName(args.profile):
-            logger.error(args.profile)
+        if args.profile:
+            if not cfg.setCurrentProfileByName(args.profile):
+                logger.error(args.profile)
 
-    elif not cfg.setCurrentProfile(args.profile_id):
-        logger.error(args.profile_id)
+        elif not cfg.setCurrentProfile(args.profile_id):
+            logger.error(args.profile_id)
 
     ssh = cfg.snapshotsMode() in ('ssh', 'ssh_encfs')
     id = cfg.currentProfile()
@@ -1120,12 +1124,12 @@ def profileStatus(args):
                 _('Log file'): cfg.takeSnapshotLogFile(),
             }})
 
-    if args.json:
+    if args is not None and args.json:
         print(json.dumps(info, indent=2), file=force_stdout)
     else:
         humanPrint(info, force_stdout)
 
-    sys.exit(RETURN_OK)
+    # sys.exit(RETURN_OK)
 
 
 def longest_key_length(dictionary):
@@ -1155,7 +1159,7 @@ def humanPrint(dictionary, file=None, indent=0, width=-1):
             print('', file=file)
 
 
-def snapshotStatus(args):
+def snapshotStatus(args=None, cfg=None, profile_id=None):
     """
     Print a summary of most recent snapshot for each profile.
 
@@ -1166,26 +1170,32 @@ def snapshotStatus(args):
     Raises:
         SystemExit:     0
     """
-    if args.profile or args.profile_id:
+    if args is None and profile_id is not None:
+        return profileStatus(args, cfg, profile_id)
+    if args is not None and (args.profile or args.profile_id):
         profileStatus(args)
 
-    force_stdout = setQuiet(args)
-    cfg = getConfig(args)
+    if cfg is None:
+        force_stdout = setQuiet(args)
+        cfg = getConfig(args)
+    else:
+        force_stdout = sys.stdout
     status = {}
 
     for profile in cfg.profiles():
         cfg.setCurrentProfile(profile)
         profile_dict = lastSnapshotDict(cfg)
 
-        if not args.issues or \
+        if  args is None or not args.issues or \
             not profile_dict[cfg.profileName(profile)].get(_('Successful')):
             status.update(profile_dict)
 
-    if args.json:
+    if args is not None and args.json:
         print(json.dumps(status, indent=2), file=force_stdout)
     else:
         humanPrint(status, force_stdout)
 
+    return
     sys.exit(RETURN_OK)
 
 

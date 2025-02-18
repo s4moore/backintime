@@ -17,6 +17,7 @@ from PyQt6.QtWidgets import (QDialog,
                              QComboBox,
                              QDialogButtonBox,
                              QCheckBox,
+                             QPushButton
                              )
 from PyQt6.QtCore import QFileSystemWatcher
 import qttools
@@ -81,6 +82,7 @@ class LogViewDialog(QDialog):
         layout.addWidget(self.comboSnapshots, 1)
         self.comboSnapshots.currentIndexChanged.connect(self.comboSnapshotsChanged)
 
+        
         if self.sid is None:
             self.lblSnapshots.hide()
             self.comboSnapshots.hide()
@@ -114,6 +116,12 @@ class LogViewDialog(QDialog):
             _('rsync transfer failures (experimental)'),
             snapshotlog.LogFilter.RSYNC_TRANSFER_FAILURES)
 
+        # status
+        self.lblStatus = QPushButton(_('Status'), self)
+        self.lblStatus.setToolTip(_('Overview of snapshots'))
+        layout.addWidget(self.lblStatus)
+        self.lblStatus.clicked.connect(self.statusViewDialogShow)
+        
         # text view
         self.txtLogView = QPlainTextEdit(self)
         self.txtLogView.setFont(QFont('Monospace'))
@@ -148,6 +156,14 @@ class LogViewDialog(QDialog):
             self.watcher.addPath(log)
         # passes the path to the changed file to updateLog()
         self.watcher.fileChanged.connect(self.updateLog)
+
+    def statusViewDialogShow(self):
+        """
+        Show the status view dialog
+        """
+        from statusviewdialog import StatusViewDialog
+        dialog = StatusViewDialog(self.mainWindow)
+        dialog.show()
 
     def cbDecodeChanged(self):
         if self.cbDecode.isChecked():
