@@ -1099,7 +1099,7 @@ def profileStatus(args=None, cfg=None, profile_id=None):
         SystemExit:     0
     """
     if cfg is not None:
-        cfg.setCurrentProfile(profile_id)
+        cfg.setCurrentProfileByName(profile_id)
         force_stdout = sys.stdout
     else: 
         force_stdout = setQuiet(args)
@@ -1114,9 +1114,9 @@ def profileStatus(args=None, cfg=None, profile_id=None):
 
     ssh = cfg.snapshotsMode() in ('ssh', 'ssh_encfs')
     id = cfg.currentProfile()
-    info = lastSnapshotDict(cfg)
+    result = lastSnapshotDict(cfg)
 
-    info[cfg.profileName(id)].update({
+    result[cfg.profileName(id)].update({
             _('Snapshot mode'): cfg.snapshotsMode(),
             _('Paths'): {
                 _('Snapshots'): cfg.sshSnapshotsFullPath() if ssh
@@ -1125,11 +1125,11 @@ def profileStatus(args=None, cfg=None, profile_id=None):
             }})
 
     if args is not None and args.json:
-        print(json.dumps(info, indent=2), file=force_stdout)
+        print(json.dumps(result, indent=2), file=force_stdout)
     else:
-        humanPrint(info, force_stdout)
+        humanPrint(result, force_stdout)
 
-    sys.exit(RETURN_OK)
+    return(RETURN_OK)
 
 
 def longest_key_length(dictionary):
@@ -1171,9 +1171,10 @@ def snapshotStatus(args=None, cfg=None, profile_id=None):
         SystemExit:     0
     """
     if args is None and profile_id is not None:
-        profileStatus(args, cfg, profile_id)
+        return profileStatus(args, cfg, profile_id)
     if args is not None and (args.profile or args.profile_id):
-        profileStatus(args)
+        return profileStatus(args)
+
     if cfg is None:
         force_stdout = setQuiet(args)
         cfg = getConfig(args)
@@ -1194,7 +1195,9 @@ def snapshotStatus(args=None, cfg=None, profile_id=None):
     else:
         humanPrint(status, force_stdout)
 
-    sys.exit(RETURN_OK)
+    # return
+    
+    return(RETURN_OK)
 
 
 def lastSnapshot(args):

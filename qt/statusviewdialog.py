@@ -113,6 +113,7 @@ class SnapshotSummary(QWidget):
         worker = Worker(cfg, profile, self.stdout_capture)
         worker.signals.result.connect(self.update_text)
         worker.signals.error.connect(self.handle_error)
+        worker.signals.finished.connect(self.on_worker_finished)
 
         self.threadpool.start(worker)  # Runs the worker in a thread
 
@@ -124,6 +125,11 @@ class SnapshotSummary(QWidget):
         """Handles errors from the worker thread."""
         exctype, value, traceback_str = error
         self.text_edit.setText(f"Error: {value}\n{traceback_str}")
+
+    def on_worker_finished(self):
+        """Cleans up when the worker finishes."""
+        pass  # No action needed now since we handle everything via signals
+
 
 
 class StatusViewDialog(QDialog):
@@ -146,9 +152,6 @@ class StatusViewDialog(QDialog):
         tabs = QTabWidget()
         tabs.setTabPosition(QTabWidget.TabPosition.North)
         tabs.setMovable(True)
-
-        # for color in ["red", "green", "blue", "yellow"]:
-        #     tabs.addTab(Color(color), color)
 
         tabs.addTab(SnapshotSummary(self.config, None), _('Summary'))
         for profile in self.config.profiles():
