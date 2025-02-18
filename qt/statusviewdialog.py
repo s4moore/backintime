@@ -103,8 +103,10 @@ class SnapshotStatus(QWidget):
         self.feed.connect(self.update_text)
         
     def update_text(self, text):
-        """Updates the text edit with output from the worker."""
-        self.text_edit.setText(text)
+        """Appends the new text to the existing content in the text edit."""
+        current_text = self.text_edit.toPlainText()  # Get the current text
+        updated_text = current_text + "\n" + text   # Append the new text with a newline
+        self.text_edit.setText(updated_text)
         
 class SnapshotSummary(QWidget):
     def __init__(self, cfg, profile, mutex, status_feed):
