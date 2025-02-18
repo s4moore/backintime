@@ -76,14 +76,10 @@ class Worker(QRunnable):
     def run(self):
         """Execute the function in the worker thread."""
         try:
-            # Try to acquire the mutex, this will block the thread until the mutex is available
             self.mutex.lock()
 
-            # try:
-            # Redirect stdout to capture
             sys.stdout = self.stdout_capture
 
-            # Run the snapshotStatus function
             backintime.snapshotStatus(args=None, cfg=self.cfg, profile_id=self.profile_id)
             self.signals.result.emit(self.stdout_capture.getvalue())
         except Exception as e:
@@ -94,12 +90,29 @@ class Worker(QRunnable):
             # Always release the mutex after execution
             self.mutex.unlock()
 
+class SnapshotStatus(QWidget):
+    feed = pyqtSignal(object)
+    def __init__(self):
+        super().__init__()
+        layout = QHBoxLayout()
+        self.setLayout(layout)
+        self.text_edit = QTextEdit()
+        self.text_edit.setReadOnly(True)
+        layout.addWidget(self.text_edit)
+        # self.feed = pyqtSignal(object)
+        self.feed.connect(self.update_text)
+        
+    def update_text(self, text):
+        """Updates the text edit with output from the worker."""
+        self.text_edit.setText(text)
+        
 class SnapshotSummary(QWidget):
-    def __init__(self, cfg, profile, mutex):
+    def __init__(self, cfg, profile, mutex, status_feed):
         super().__init__()
         layout = QHBoxLayout()
         self.setLayout(layout)
         self.mutex = mutex
+        self.status_feed = status_feed
         self.text_edit = QTextEdit()
         self.text_edit.setReadOnly(True)
         layout.addWidget(self.text_edit)
@@ -114,6 +127,7 @@ class SnapshotSummary(QWidget):
         
         worker = Worker(cfg, profile, self.stdout_capture, self.mutex)
         worker.signals.result.connect(self.update_text)
+        worker.signals.result.connect(self.status_feed)
         worker.signals.error.connect(self.handle_error)
         worker.signals.finished.connect(self.on_worker_finished)
 
@@ -155,9 +169,10 @@ class StatusViewDialog(QDialog):
         tabs.setTabPosition(QTabWidget.TabPosition.North)
         tabs.setMovable(True)
         mutex = QMutex()
-        tabs.addTab(SnapshotSummary(self.config, None, mutex), _('Summary'))
+        status_tab = SnapshotStatus()
+        tabs.addTab(status_tab, _('Summary'))
         for profile in self.config.profiles():
-            tabs.addTab(SnapshotSummary(self.config, profile, mutex), self.config.profileName(profile))   
+            tabs.addTab(SnapshotSummary(self.config, profile, mutex, status_tab.feed), self.config.profileName(profile))   
             
         self.layout = QVBoxLayout()
         self.layout.addWidget(tabs)
