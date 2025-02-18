@@ -1,6 +1,6 @@
 import sys, traceback, io
 
-from PyQt6.QtCore import QFileSystemWatcher, pyqtSlot, QObject, pyqtSignal, QRunnable, QThreadPool
+from PyQt6.QtCore import QFileSystemWatcher, pyqtSlot, QObject, pyqtSignal, QRunnable, QThreadPool, QMutex
 import qttools
 import snapshots
 import encfstools
@@ -64,6 +64,8 @@ class WorkerSignals(QObject):
 class Worker(QRunnable):
     """Worker thread that runs snapshotStatus in a separate thread."""
 
+    mutex = QMutex()  # Create a shared mutex for synchronization
+
     def __init__(self, cfg, profile_id, stdout_capture):
         super().__init__()
         self.cfg = cfg
@@ -75,11 +77,21 @@ class Worker(QRunnable):
     def run(self):
         """Execute the function in the worker thread."""
         try:
-            # Redirect stdout to capture
-            sys.stdout = self.stdout_capture
-            
-            # Run the snapshotStatus function
-            result = backintime.snapshotStatus(args=None, cfg=self.cfg, profile_id=self.profile_id)
+            # Try to acquire the mutex to ensure only one thread runs snapshotStatus at a time
+            if Worker.mutex.tryLock():
+                try:
+                    # Redirect stdout to capture
+                    sys.stdout = self.stdout_capture
+
+                    # Run the snapshotStatus function
+                    result = backintime.snapshotStatus(args=None, cfg=self.cfg, profile_id=self.profile_id)
+                finally:
+                    # Always release the mutex after execution
+                    Worker.mutex.unlock()
+            else:
+                # If the mutex is already locked, you can emit a message or handle as needed
+                self.signals.error.emit(("Mutex is already locked",))
+
         except Exception:
             traceback.print_exc()
             exctype, value = sys.exc_info()[:2]
