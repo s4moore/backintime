@@ -1129,7 +1129,7 @@ def profileStatus(args=None, cfg=None, profile_id=None):
     else:
         humanPrint(info, force_stdout)
 
-    # sys.exit(RETURN_OK)
+    sys.exit(RETURN_OK)
 
 
 def longest_key_length(dictionary):
@@ -1171,10 +1171,9 @@ def snapshotStatus(args=None, cfg=None, profile_id=None):
         SystemExit:     0
     """
     if args is None and profile_id is not None:
-        return profileStatus(args, cfg, profile_id)
+        profileStatus(args, cfg, profile_id)
     if args is not None and (args.profile or args.profile_id):
         profileStatus(args)
-
     if cfg is None:
         force_stdout = setQuiet(args)
         cfg = getConfig(args)
@@ -1195,7 +1194,6 @@ def snapshotStatus(args=None, cfg=None, profile_id=None):
     else:
         humanPrint(status, force_stdout)
 
-    return
     sys.exit(RETURN_OK)
 
 
