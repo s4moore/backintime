@@ -64,52 +64,42 @@ class WorkerSignals(QObject):
 class Worker(QRunnable):
     """Worker thread that runs snapshotStatus in a separate thread."""
 
-    mutex = QMutex()  # Create a shared mutex for synchronization
-
-    def __init__(self, cfg, profile_id, stdout_capture):
+    def __init__(self, cfg, profile_id, stdout_capture, mutex):
         super().__init__()
         self.cfg = cfg
         self.profile_id = profile_id
         self.signals = WorkerSignals()
+        self.mutex = mutex
         self.stdout_capture = stdout_capture  # Capture sys.stdout
 
     @pyqtSlot()
     def run(self):
         """Execute the function in the worker thread."""
         try:
-            # Try to acquire the mutex to ensure only one thread runs snapshotStatus at a time
-            if Worker.mutex.tryLock():
-                try:
-                    # Redirect stdout to capture
-                    sys.stdout = self.stdout_capture
+            # Try to acquire the mutex, this will block the thread until the mutex is available
+            self.mutex.lock()
 
-                    # Run the snapshotStatus function
-                    result = backintime.snapshotStatus(args=None, cfg=self.cfg, profile_id=self.profile_id)
-                finally:
-                    # Always release the mutex after execution
-                    Worker.mutex.unlock()
-            else:
-                # If the mutex is already locked, you can emit a message or handle as needed
-                self.signals.error.emit(("Mutex is already locked",))
+            # try:
+            # Redirect stdout to capture
+            sys.stdout = self.stdout_capture
 
-        except Exception:
-            traceback.print_exc()
-            exctype, value = sys.exc_info()[:2]
-            self.signals.error.emit((exctype, value, traceback.format_exc()))
-        else:
-            # Emit the captured output when result is available
+            # Run the snapshotStatus function
+            backintime.snapshotStatus(args=None, cfg=self.cfg, profile_id=self.profile_id)
             self.signals.result.emit(self.stdout_capture.getvalue())
+        except Exception as e:
+            # Handle any other exceptions here
+            traceback.print_exc()
+            self.signals.error.emit((str(e),))
         finally:
-            # Ensure the capture is cleaned up
-            self.signals.finished.emit()
-            sys.stdout = sys.__stdout__  # Reset stdout to original
+            # Always release the mutex after execution
+            self.mutex.unlock()
 
 class SnapshotSummary(QWidget):
-    def __init__(self, cfg, profile):
+    def __init__(self, cfg, profile, mutex):
         super().__init__()
         layout = QHBoxLayout()
         self.setLayout(layout)
-
+        self.mutex = mutex
         self.text_edit = QTextEdit()
         self.text_edit.setReadOnly(True)
         layout.addWidget(self.text_edit)
@@ -122,7 +112,7 @@ class SnapshotSummary(QWidget):
         """Starts the worker thread and connects signals."""
         self.stdout_capture = io.StringIO()
         
-        worker = Worker(cfg, profile, self.stdout_capture)
+        worker = Worker(cfg, profile, self.stdout_capture, self.mutex)
         worker.signals.result.connect(self.update_text)
         worker.signals.error.connect(self.handle_error)
         worker.signals.finished.connect(self.on_worker_finished)
@@ -164,10 +154,10 @@ class StatusViewDialog(QDialog):
         tabs = QTabWidget()
         tabs.setTabPosition(QTabWidget.TabPosition.North)
         tabs.setMovable(True)
-
-        tabs.addTab(SnapshotSummary(self.config, None), _('Summary'))
+        mutex = QMutex()
+        tabs.addTab(SnapshotSummary(self.config, None, mutex), _('Summary'))
         for profile in self.config.profiles():
-            tabs.addTab(SnapshotSummary(self.config, profile), self.config.profileName(profile))   
+            tabs.addTab(SnapshotSummary(self.config, profile, mutex), self.config.profileName(profile))   
             
         self.layout = QVBoxLayout()
         self.layout.addWidget(tabs)
