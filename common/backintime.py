@@ -1099,7 +1099,7 @@ def profileStatus(args=None, cfg=None, profile_id=None):
         SystemExit:     0
     """
     if cfg is not None:
-        cfg.setCurrentProfileByName(profile_id)
+        cfg.setCurrentProfile(profile_id)
         force_stdout = sys.stdout
     else: 
         force_stdout = setQuiet(args)
