@@ -92,6 +92,7 @@ class Worker(QRunnable):
 
 class SnapshotStatus(QWidget):
     feed = pyqtSignal(object)
+    mutex = QMutex()
     def __init__(self):
         super().__init__()
         layout = QHBoxLayout()
@@ -104,6 +105,7 @@ class SnapshotStatus(QWidget):
         
     def update_text(self, text):
         """Appends the new text to the existing content in the text edit."""
+        self.mutex.lock()
         current_text = self.text_edit.toPlainText()  # Get the current text
         summary = ''
         lines = text.splitlines()
@@ -115,6 +117,7 @@ class SnapshotStatus(QWidget):
         summary += '\n'
         updated_text = current_text + "\n" + summary   # Append the new text with a newline
         self.text_edit.setText(updated_text)
+        self.mutex.unlock()
         sys.stdout.flush()  # Flush the buffer to update the text edit
         
 class SnapshotSummary(QWidget):
