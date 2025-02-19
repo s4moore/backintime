@@ -105,7 +105,15 @@ class SnapshotStatus(QWidget):
     def update_text(self, text):
         """Appends the new text to the existing content in the text edit."""
         current_text = self.text_edit.toPlainText()  # Get the current text
-        updated_text = current_text + "\n" + text   # Append the new text with a newline
+        summary = ''
+        lines = text.splitlines()
+        for line in lines:
+            print(line)
+            if line.startswith('   Snap'):
+                break
+            summary += f"{line}\n"
+        summary += '\n'
+        updated_text = current_text + "\n" + summary   # Append the new text with a newline
         self.text_edit.setText(updated_text)
         
 class SnapshotSummary(QWidget):
