@@ -115,6 +115,7 @@ class SnapshotStatus(QWidget):
         summary += '\n'
         updated_text = current_text + "\n" + summary   # Append the new text with a newline
         self.text_edit.setText(updated_text)
+        sys.stdout.flush()  # Flush the buffer to update the text edit
         
 class SnapshotSummary(QWidget):
     def __init__(self, cfg, profile, mutex, status_feed):
