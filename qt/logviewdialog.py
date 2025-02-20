@@ -17,7 +17,9 @@ from PyQt6.QtWidgets import (QDialog,
                              QComboBox,
                              QDialogButtonBox,
                              QCheckBox,
-                             QPushButton
+                             QPushButton,
+                             QProgressBar,
+                             QWidget
                              )
 from PyQt6.QtCore import QFileSystemWatcher
 import qttools
@@ -138,6 +140,12 @@ class LogViewDialog(QDialog):
         self.cbDecode.stateChanged.connect(self.cbDecodeChanged)
         self.mainLayout.addWidget(self.cbDecode)
 
+        #Setup progress bar for snapshot summary
+        self.progressBar = QProgressBar()
+        self.progressBar.setValue(0)  
+        self.progressBar.hide()
+        self.mainLayout.addWidget(self.progressBar)
+        
         # buttons
         buttonBox = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
         self.mainLayout.addWidget(buttonBox)
@@ -157,6 +165,7 @@ class LogViewDialog(QDialog):
         # passes the path to the changed file to updateLog()
         self.watcher.fileChanged.connect(self.updateLog)
 
+        
     def statusViewDialogShow(self):
         """
         Show the status view dialog
@@ -185,7 +194,17 @@ class LogViewDialog(QDialog):
         self.mainWindow.comboProfileChanged(None)
 
         self.updateDecode()
-        self.updateLog()
+
+        if index > 0:
+            self.updateLog()
+            self.comboFilter.setDisabled(False)
+        else:
+            self.txtLogView.setPlainText(
+        "'\n'.join(log.get(mode=mode, decode=self.decode))")
+            self.comboFilter.setDisabled(True)
+            self.progressBar.show()
+
+        
 
     def comboSnapshotsChanged(self, index):
         if not self.enableUpdate:
@@ -202,6 +221,8 @@ class LogViewDialog(QDialog):
         self.comboProfiles.clear()
 
         qttools.update_combo_profiles(self.config, self.comboProfiles, current_profile_id)
+        if self.comboFilter.count() > 1:
+            self.comboProfiles.addItem('Summary of all profies', 0)
 
         self.enableUpdate = True
         self.updateLog()

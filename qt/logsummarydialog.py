@@ -26,6 +26,9 @@ import snapshotlog
 import tools
 import qttools
 from statedata import StateData
+import logger
+
+
 
 
 class LogSummaryDialog(QDialog):
@@ -50,7 +53,6 @@ class LogSummaryDialog(QDialog):
         self.sid = sid
         self.enableUpdate = False
         self.decode = None
-
         state_data = StateData()
         self.resize(*state_data.logview_dims)
 
@@ -58,10 +60,9 @@ class LogSummaryDialog(QDialog):
         self.setWindowIcon(icon.VIEW_SNAPSHOT_LOG)
         if self.sid is None:
             # return self.log_summary()
-            self.setWindowTitle(_('Last Log View'))
+            self.setWindowTitle(_('Last Log***** View'))
         else:
-            self.setWindowTitle(_('Snapshot Log View'))
-
+            self.setWindowTitle(_('Snapshot Log V******iew'))
 
         self.mainLayout = QVBoxLayout(self)
 
@@ -74,7 +75,7 @@ class LogSummaryDialog(QDialog):
 
         self.comboProfiles = qttools.ProfileCombo(self)
         layout.addWidget(self.comboProfiles, 1)
-        self.comboProfiles.addItem('Summary', self.log_summary)
+        # self.comboProfiles.addItem('Summary', self.log_summary) #remove me
         self.comboProfiles.currentIndexChanged.connect(self.profileChanged)
 
         # snapshots
@@ -165,6 +166,8 @@ class LogSummaryDialog(QDialog):
         self.updateLog()
 
     def profileChanged(self, index):
+        # logger.openlog()
+        logger._do_log ('changed')
         if not self.enableUpdate:
             return
         profile_id = self.comboProfiles.currentProfileID()
@@ -178,7 +181,11 @@ class LogSummaryDialog(QDialog):
         if not self.enableUpdate:
             return
         self.sid = self.comboSnapshots.currentSnapshotID()
-        self.updateLog()
+        if self.comboSnapshots.currentIndex() == 0:
+            self.txtLogView.setPlainText(
+                "f")
+        else:
+            self.updateLog()
 
     def comboFilterChanged(self, index):
         self.updateLog()
@@ -191,7 +198,11 @@ class LogSummaryDialog(QDialog):
         qttools.update_combo_profiles(self.config, self.comboProfiles, current_profile_id)
 
         self.enableUpdate = True
-        self.updateLog()
+        if current_profile_id == 0:
+            self.txtLogView.setPlainText(
+                "'\n'.join(log.get_all(mode=mode, decode=self.decode))")
+        else:
+            self.updateLog()
 
         if len(self.config.profilesSortedByName()) <= 1:
             self.lblProfile.setVisible(False)
@@ -230,7 +241,6 @@ class LogSummaryDialog(QDialog):
             return
 
         mode = self.comboFilter.itemData(self.comboFilter.currentIndex())
-
         # TODO This expressions is hard to understand (watchPath is not a
         # boolean!)
         if watchPath and self.sid is None:
@@ -260,6 +270,7 @@ class LogSummaryDialog(QDialog):
         else:
             self.txtLogView.setPlainText(
                 '\n'.join(self.sid.log(mode, decode=self.decode)))
+
             
     def log_summary(self):
         main_layout = self.mainWindow

@@ -201,6 +201,7 @@ def update_combo_profiles(config, combo_profiles, current_profile_id):
         if profile_id == current_profile_id:
             combo_profiles.setCurrentProfileID(profile_id)
 
+
 # |---------------------|
 # | Misc / Uncatgorized |
 # |---------------------|
@@ -720,7 +721,6 @@ class SortedComboBox(QComboBox):
         so this little hack is used to insert
         items in sorted order.
         """
-
         if self.sortRole == Qt.ItemDataRole.UserRole:
             sortObject = userData
         else:
@@ -734,7 +734,11 @@ class SortedComboBox(QComboBox):
         the_list.sort(reverse=reverse_sort)
         index = the_list.index(sortObject)
 
-        super(SortedComboBox, self).insertItem(index, text, userData)
+        if userData == 0:
+            super(SortedComboBox, self).insertItem(0, text, userData) #remove
+            super(SortedComboBox, self).insertSeparator(1)
+        else:
+            super(SortedComboBox, self).insertItem(index, text, userData)
 
     def checkSelection(self):
         if self.currentIndex() < 0:
