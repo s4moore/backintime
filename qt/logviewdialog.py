@@ -221,8 +221,7 @@ class LogViewDialog(QDialog):
         self.comboProfiles.clear()
 
         qttools.update_combo_profiles(self.config, self.comboProfiles, current_profile_id)
-        if self.comboFilter.count() > 1:
-            self.comboProfiles.addItem('Summary of all profies', 0)
+        self.comboProfiles.addItem('Summary of all profies', 0)
 
         self.enableUpdate = True
         self.updateLog()
