@@ -8,6 +8,8 @@
 # This file is part of the program "Back In Time" which is released under GNU
 # General Public License v2 (GPLv2). See LICENSES directory or go to
 # <https://spdx.org/licenses/GPL-2.0-or-later.html>.
+import io
+import sys
 from PyQt6.QtGui import QFont
 from PyQt6.QtWidgets import (QDialog,
                              QLabel,
@@ -17,18 +19,67 @@ from PyQt6.QtWidgets import (QDialog,
                              QComboBox,
                              QDialogButtonBox,
                              QCheckBox,
-                             QPushButton,
-                             QProgressBar,
-                             QWidget
+                             QProgressBar
                              )
-from PyQt6.QtCore import QFileSystemWatcher
+from PyQt6.QtCore import QFileSystemWatcher, QTimer, QThread, pyqtSignal
 import qttools
+import backintime
 import snapshots
 import encfstools
 import snapshotlog
 import tools
 import qttools
 from statedata import StateData
+
+class ProfileStatusWorker(QThread):
+    """
+    Run the Backintime snapshot status for each profile.
+
+    This worker runs the `snapshotStatus` function for each profile, 
+    redirecting standard output (stdout) to capture the status updates.
+    The captured output is then sent back to the main thread via signals 
+    for progress updates and log display.
+
+    Args:
+        config (ConfigFileWithProfiles):    The active configuration data
+
+    Emits:
+        progress (int):                     The precentage of profiles checked
+        output_text (str):                  The snapshot status output
+                                            captured for each profile to be
+                                            printed in the main thread
+    """
+    progress = pyqtSignal(int)
+    output_text = pyqtSignal(str)
+
+    def __init__(self, config):
+        super().__init__()
+        self.config = config
+
+    def run(self):
+        num_profiles = sum(1 for _ in self.config.profiles())
+        progress = 0
+
+        # Redirect stdout to a StringIO buffer to capture stdout
+        buffer = io.StringIO()
+        old_stdout = sys.stdout  
+        sys.stdout = buffer  
+
+        for profile in self.config.profiles():
+            backintime.snapshotStatus(None, self.config, profile)
+            progress += 1
+            percentage = int((progress / num_profiles) * 100)
+
+            # Send progress and output to main thread
+            self.progress.emit(percentage)
+            self.output_text.emit(buffer.getvalue())
+            
+            # Clear the buffer for the next profile's output
+            buffer.seek(0)
+            buffer.truncate(0)
+
+        # Restore the original stdout
+        sys.stdout = old_stdout 
 
 
 class LogViewDialog(QDialog):
@@ -118,11 +169,6 @@ class LogViewDialog(QDialog):
             _('rsync transfer failures (experimental)'),
             snapshotlog.LogFilter.RSYNC_TRANSFER_FAILURES)
 
-        # status
-        self.lblStatus = QPushButton(_('Status'), self)
-        self.lblStatus.setToolTip(_('Overview of snapshots'))
-        layout.addWidget(self.lblStatus)
-        self.lblStatus.clicked.connect(self.statusViewDialogShow)
         
         # text view
         self.txtLogView = QPlainTextEdit(self)
@@ -140,7 +186,7 @@ class LogViewDialog(QDialog):
         self.cbDecode.stateChanged.connect(self.cbDecodeChanged)
         self.mainLayout.addWidget(self.cbDecode)
 
-        #Setup progress bar for snapshot summary
+        # Progress bar for profile status
         self.progressBar = QProgressBar()
         self.progressBar.setValue(0)  
         self.progressBar.hide()
@@ -164,15 +210,6 @@ class LogViewDialog(QDialog):
             self.watcher.addPath(log)
         # passes the path to the changed file to updateLog()
         self.watcher.fileChanged.connect(self.updateLog)
-
-        
-    def statusViewDialogShow(self):
-        """
-        Show the status view dialog
-        """
-        from statusviewdialog import StatusViewDialog
-        dialog = StatusViewDialog(self.mainWindow)
-        dialog.show()
 
     def cbDecodeChanged(self):
         if self.cbDecode.isChecked():
@@ -199,11 +236,26 @@ class LogViewDialog(QDialog):
             self.updateLog()
             self.comboFilter.setDisabled(False)
         else:
-            self.txtLogView.setPlainText(
-        "'\n'.join(log.get(mode=mode, decode=self.decode))")
             self.comboFilter.setDisabled(True)
             self.progressBar.show()
+            self.getProfileStatus()
 
+    def getProfileStatus(self):
+        self.progressBar.setValue(0)
+        self.txtLogView.clear()
+
+        # Create worker thread
+        self.worker = ProfileStatusWorker(self.config)
+
+        # Signals for progress bar and updating text
+        self.worker.progress.connect(self.progressBar.setValue)
+        self.worker.output_text.connect(self.txtLogView.appendPlainText)
+        self.worker.finished.connect(self.hideProgressBar)
+
+        self.worker.start()
+
+    def hideProgressBar(self):
+        QTimer.singleShot(3000, self.progressBar.hide) 
         
 
     def comboSnapshotsChanged(self, index):
@@ -221,7 +273,7 @@ class LogViewDialog(QDialog):
         self.comboProfiles.clear()
 
         qttools.update_combo_profiles(self.config, self.comboProfiles, current_profile_id)
-        self.comboProfiles.addItem('Summary of all profies', 0)
+        self.comboProfiles.addItem('Status of all profies', 0)
 
         self.enableUpdate = True
         self.updateLog()
