@@ -186,17 +186,21 @@ class LogViewDialog(QDialog):
         self.cbDecode.stateChanged.connect(self.cbDecodeChanged)
         self.mainLayout.addWidget(self.cbDecode)
 
-        # Progress bar for profile status
-        self.progressBar = QProgressBar()
-        self.progressBar.setValue(0)  
-        self.progressBar.hide()
-        self.mainLayout.addWidget(self.progressBar)
         
         # buttons
         buttonBox = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
         self.mainLayout.addWidget(buttonBox)
         buttonBox.rejected.connect(self.close)
 
+        # Progress bar for profile status
+        self.progressBar = QProgressBar()
+        self.progressBar.setValue(0)  
+        self.progressBar.hide()
+        self.progressBar.setContentsMargins(0, 0, 0, 0)
+        self.progressBar.setFixedHeight(5)
+        self.progressBar.setFormat("")
+        self.mainLayout.addWidget(self.progressBar)
+        
         self.updateSnapshots()
         self.updateDecode()
         self.updateProfiles()
@@ -241,13 +245,14 @@ class LogViewDialog(QDialog):
             self.getProfileStatus()
 
     def getProfileStatus(self):
+        """Start a thread to update the snapshot status view."""
         self.progressBar.setValue(0)
         self.txtLogView.clear()
 
         # Create worker thread
         self.worker = ProfileStatusWorker(self.config)
 
-        # Signals for progress bar and updating text
+        # Connect signals for updating text, progress bar, and thread finishing
         self.worker.progress.connect(self.progressBar.setValue)
         self.worker.output_text.connect(self.txtLogView.appendPlainText)
         self.worker.finished.connect(self.hideProgressBar)
@@ -255,6 +260,7 @@ class LogViewDialog(QDialog):
         self.worker.start()
 
     def hideProgressBar(self):
+        """Hide progres bar 3 seconds after thread finishes."""
         QTimer.singleShot(3000, self.progressBar.hide) 
         
 
