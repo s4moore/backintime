@@ -99,7 +99,7 @@ def takeSnapshot(cfg, force=True):
     """
     tools.envLoad(cfg.cronEnvFile())
     ret = snapshots.Snapshots(cfg).backup(force)
-
+    
     return ret
 
 
@@ -1041,7 +1041,7 @@ def lastSnapshotDict(cfg:config.Config):
     date of the most recent successful snapshot is included in the dict.
 
     Args:
-        config: 
+        cfg (configfile.ConfigFileWithProfiles):
                         the currently selected configuration.
 
     Returns:
@@ -1072,7 +1072,6 @@ def lastSnapshotDict(cfg:config.Config):
 
         return {cfg.profileName(cfg.currentProfile()): info}
 
-    # Unable to establish SSH connection
     except MountException as error:
         ssh = None
         logger.warning(_('Unable to establish connection with : ') +
@@ -1088,15 +1087,22 @@ def lastSnapshotDict(cfg:config.Config):
 def profileStatus(args=None, cfg=None, profile_id=None):
     """
     Print most recent snapshot and snapshot details for the profile
-    specified with --profile or --profile-id (--profile takes 
+    specified with --profile or --profile-id flags (--profile takes 
     preference).
 
     Args:
         args (argparse.Namespace):
-                        previously parsed arguments
-
-    Raises:
-        SystemExit:     0
+                        previously parsed arguments, not used if called
+                        from the gui
+        cfg (configfile.ConfigFileWithProfiles):
+                        the current configuration, only used when this method
+                        is called from the gui
+        profile_id (int):
+                        the id of the profile to check, only used when
+                        this method called from the gui
+                        
+    Returns:
+        int:            `RETURN_OK` (0) on success.
     """
     if cfg is not None:
         cfg.setCurrentProfile(profile_id)
@@ -1124,9 +1130,11 @@ def profileStatus(args=None, cfg=None, profile_id=None):
                 _('Log file'): cfg.takeSnapshotLogFile(),
             }})
 
+    # Output the status as JSON if --json flag set
     if args is not None and args.json:
         print(json.dumps(result, indent=2), file=force_stdout)
     else:
+        # otherwise print in a human-readable format
         humanPrint(result, force_stdout)
 
     return(RETURN_OK)
@@ -1161,41 +1169,54 @@ def humanPrint(dictionary, file=None, indent=0, width=-1):
 
 def snapshotStatus(args=None, cfg=None, profile_id=None):
     """
-    Print a summary of most recent snapshot for each profile.
+    Default behaviour (called from CLI):
+    Print the status of the most recent snapshot for each profile.
+
+    If the --profile or --profile_id flags are provided when run from the CLI,
+    only the specified profile's status will be printed. 
+
+    If called from the gui, the current config and requested
+    profile id must be passed as arguments.
 
     Args:
         args (argparse.Namespace):
                         previously parsed arguments
+        cfg (configfile.ConfigFileWithProfiles):
+                        the current configuration, only used when this 
+                        method is called from the gui
+        profile_id (int):
+                        the id of the profile to check, only used when
+                        this method called from the gui
 
-    Raises:
-        SystemExit:     0
+    Returns:
+        int:            `RETURN_OK` (0) on success.
     """
     if args is None and profile_id is not None:
         return profileStatus(args, cfg, profile_id)
     if args is not None and (args.profile or args.profile_id):
         return profileStatus(args)
 
-    if cfg is None:
-        force_stdout = setQuiet(args)
-        cfg = getConfig(args)
-    else:
-        force_stdout = sys.stdout
+
+    force_stdout = setQuiet(args)
+    cfg = getConfig(args)
     status = {}
 
     for profile in cfg.profiles():
         cfg.setCurrentProfile(profile)
         profile_dict = lastSnapshotDict(cfg)
 
-        if  args is None or not args.issues or \
+        # Include all snapshots if --issues flag not set. If flag is set,
+        # only include snapshots where most recent snapshot was unsuccessful
+        if not args.issues or \
             not profile_dict[cfg.profileName(profile)].get(_('Successful')):
             status.update(profile_dict)
 
-    if args is not None and args.json:
+    # Output the status as JSON if --json flag set
+    if args.json:
         print(json.dumps(status, indent=2), file=force_stdout)
     else:
+        # otherwise print in a human-readable format
         humanPrint(status, force_stdout)
-
-    # return
     
     return(RETURN_OK)
 
